@@ -59,6 +59,9 @@
             background-color: #eef2ff;
             font-weight: 600;
         }
+        .share-btn-icon {
+            font-size: 1.5rem;
+        }
     </style>
 </head>
 <body class="bg-gray-100 p-4 min-h-screen flex flex-col items-center">
@@ -95,6 +98,22 @@
         <!-- Report Display Section -->
         <div id="reportSection" class="hidden bg-white p-6 rounded-2xl shadow-lg">
             <h2 class="text-2xl font-semibold text-indigo-800 mb-6 text-center">Generated Reports</h2>
+            <!-- New: Container for share buttons -->
+            <div id="shareButtonsContainer" class="hidden flex flex-wrap gap-4 justify-center mb-6">
+                <button id="copyButton" class="flex-1 py-3 px-6 bg-gray-500 text-white font-bold rounded-lg shadow-md hover:bg-gray-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2">
+                    <span class="share-btn-icon">📋</span> Copy to Clipboard
+                </button>
+                <a id="whatsappShare" href="#" class="flex-1 py-3 px-6 bg-green-500 text-white font-bold rounded-lg shadow-md hover:bg-green-600 transition-colors duration-200 flex items-center justify-center gap-2">
+                    <span class="share-btn-icon">💬</span> WhatsApp
+                </a>
+                <a id="gmailShare" href="#" class="flex-1 py-3 px-6 bg-red-500 text-white font-bold rounded-lg shadow-md hover:bg-red-600 transition-colors duration-200 flex items-center justify-center gap-2">
+                    <span class="share-btn-icon">📧</span> Gmail
+                </a>
+                <a id="facebookShare" href="#" class="flex-1 py-3 px-6 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center gap-2">
+                    <span class="share-btn-icon">👍</span> Facebook
+                </a>
+            </div>
+            
             <div id="reportContent" class="space-y-12">
                 <!-- Reports for each person and joint report will be generated here -->
             </div>
@@ -439,6 +458,8 @@
         function generateIndividualReport(person) {
             document.getElementById('reportContent').innerHTML = generateIndividualReportHtml(person);
             document.getElementById('reportSection').classList.remove('hidden');
+            document.getElementById('shareButtonsContainer').classList.remove('hidden');
+            attachShareEventListeners();
         }
 
         // Generate full report for a two people
@@ -463,7 +484,9 @@
 
             document.getElementById('reportContent').innerHTML = person1Report + person2Report + jointReportHtml + comparisonChartHtml;
             document.getElementById('reportSection').classList.remove('hidden');
+            document.getElementById('shareButtonsContainer').classList.remove('hidden');
             document.getElementById('reportContent').scrollIntoView({ behavior: 'smooth' });
+            attachShareEventListeners();
         }
 
         // Helper function to generate individual report HTML string
@@ -642,6 +665,91 @@
             };
             const sortedPair = [lp1, lp2].sort((a, b) => a - b).join('-');
             return pairs[sortedPair] || "The connection between these two numbers is unique and requires a more in-depth analysis. While there might be challenges, every relationship holds potential for growth.";
+        }
+        
+        // --- New Functionality: Copy and Share ---
+
+        function attachShareEventListeners() {
+            // Remove existing listeners to prevent duplicates
+            const copyBtn = document.getElementById('copyButton');
+            const whatsappLink = document.getElementById('whatsappShare');
+            const gmailLink = document.getElementById('gmailShare');
+            const facebookLink = document.getElementById('facebookShare');
+            
+            // Re-attach listeners
+            copyBtn.onclick = () => copyReportToClipboard();
+            whatsappLink.onclick = () => shareReport('whatsapp');
+            gmailLink.onclick = () => shareReport('gmail');
+            facebookLink.onclick = () => shareReport('facebook');
+        }
+
+        function getReportText() {
+            // Get the main report content
+            const reportContent = document.getElementById('reportContent');
+            if (!reportContent) return '';
+
+            // Clean up the HTML to get a readable text version
+            let text = reportContent.innerText.replace(/[\u200B-\u200D\uFEFF]/g, ''); // Remove zero-width spaces
+            text = text.replace(/View Report|Remove|Generate Joint Report/g, ''); // Remove button text
+            text = text.replace(/Add Person|Saved People|Generated Reports/g, ''); // Remove UI text
+            text = text.replace(/\n\s*\n/g, '\n\n'); // Clean up multiple newlines
+
+            // Add an intro message
+            const intro = "Here is a comprehensive numerology and astrology report generated by the report app:\n\n";
+            return intro + text.trim();
+        }
+
+        function copyReportToClipboard() {
+            const reportText = getReportText();
+            if (!reportText) {
+                showMessage('No report content to copy.', true);
+                return;
+            }
+
+            // Use a temporary textarea for copying to clipboard
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = reportText;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showMessage('Report copied to clipboard!', false);
+                } else {
+                    throw new Error('Copy command was unsuccessful.');
+                }
+            } catch (err) {
+                showMessage('Failed to copy. Please try again.', true);
+            } finally {
+                document.body.removeChild(tempTextArea);
+            }
+        }
+
+        function shareReport(platform) {
+            const reportText = getReportText();
+            if (!reportText) {
+                showMessage('No report content to share.', true);
+                return;
+            }
+            const encodedText = encodeURIComponent(reportText);
+
+            let url;
+            switch (platform) {
+                case 'whatsapp':
+                    url = `https://wa.me/?text=${encodedText}`;
+                    break;
+                case 'gmail':
+                    url = `https://mail.google.com/mail/?view=cm&fs=1&su=My Numerology Report&body=${encodedText}`;
+                    break;
+                case 'facebook':
+                    // Facebook's sharer primarily uses a URL, so using the quote is the best approach
+                    url = `https://www.facebook.com/sharer/sharer.php?quote=${encodedText}`;
+                    break;
+                default:
+                    return;
+            }
+            window.open(url, '_blank');
         }
     </script>
 </body>
