@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comprehensive Report Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        .loshu-cell {
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.125rem;
+            color: white;
+            padding: 0.5rem;
+            text-align: center;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            transition: transform 0.2s ease-in-out;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .loshu-cell:hover {
+            transform: scale(1.05);
+        }
+        .report-section {
+            border-bottom: 2px dashed #e5e7eb;
+            padding-bottom: 2rem;
+            margin-bottom: 2rem;
+        }
+        .report-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .number-comparison-bar {
+            height: 25px;
+            background-color: #3b82f6;
+            border-radius: 0.5rem;
+            transition: width 0.5s ease-in-out;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .number-comparison-table th, .number-comparison-table td {
+            padding: 0.75rem;
+            border: 1px solid #e5e7eb;
+            text-align: center;
+        }
+        .number-comparison-table th {
+            background-color: #eef2ff;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 min-h-screen flex flex-col items-center">
+    <!-- Main Container -->
+    <div class="bg-white rounded-3xl shadow-xl p-6 sm:p-10 max-w-6xl w-full">
+        <!-- Header -->
+        <h1 class="text-3xl sm:text-4xl font-bold text-center text-indigo-700 mb-6">Numerology & Astrology Reports</h1>
+        <p class="text-center text-gray-600 mb-8">Generate comprehensive reports for one or two people.</p>
+        
+        <!-- User Input Form -->
+        <div class="bg-indigo-50 p-6 rounded-2xl mb-6 shadow-inner">
+            <h2 class="text-2xl font-semibold text-indigo-800 mb-4">Add a Person</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="flex flex-col">
+                    <label for="nameInput" class="text-sm font-medium text-gray-700 mb-1">Full Name:</label>
+                    <input type="text" id="nameInput" placeholder="e.g., Jane Doe" class="p-3 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                </div>
+                <div class="flex flex-col">
+                    <label for="dobInput" class="text-sm font-medium text-gray-700 mb-1">Date of Birth (dd/mm/yyyy or dd-mm-yyyy):</label>
+                    <input type="text" id="dobInput" placeholder="dd/mm/yyyy or dd-mm-yyyy" class="p-3 border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                </div>
+                <button id="addPersonButton" class="w-full py-3 px-6 bg-indigo-600 text-white font-bold rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 self-end mt-4 sm:mt-0">Add Person</button>
+            </div>
+        </div>
+
+        <!-- List of Added People -->
+        <div id="peopleListContainer" class="hidden bg-white p-6 rounded-2xl shadow-lg mb-6">
+            <h2 class="text-2xl font-semibold text-indigo-800 mb-4">Saved People</h2>
+            <ul id="peopleList" class="space-y-4">
+                <!-- People items will be dynamically added here -->
+            </ul>
+        </div>
+        
+        <!-- Report Display Section -->
+        <div id="reportSection" class="hidden bg-white p-6 rounded-2xl shadow-lg">
+            <h2 class="text-2xl font-semibold text-indigo-800 mb-6 text-center">Generated Reports</h2>
+            <div id="reportContent" class="space-y-12">
+                <!-- Reports for each person and joint report will be generated here -->
+            </div>
+        </div>
+
+        <!-- Error/Message Box -->
+        <div id="messageBox" class="hidden fixed top-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-lg z-50">
+            <span id="messageText"></span>
+        </div>
+    </div>
+
+    <script>
+        const people = [];
+
+        // Helper function to show a temporary message box
+        function showMessage(text, isError = false) {
+            const messageBox = document.getElementById('messageBox');
+            const messageText = document.getElementById('messageText');
+            messageText.textContent = text;
+            messageBox.classList.remove('hidden', 'bg-red-500', 'bg-green-500');
+            messageBox.classList.add(isError ? 'bg-red-500' : 'bg-green-500');
+            setTimeout(() => {
+                messageBox.classList.add('hidden');
+            }, 3000);
+        }
+
+        // --- Core Calculation Logic ---
+
+        // Name-to-number maps for different methodologies
+        const numerologyMaps = {
+            'Pythagorean': {
+                'A': 1, 'J': 1, 'S': 1,
+                'B': 2, 'K': 2, 'T': 2,
+                'C': 3, 'L': 3, 'U': 3,
+                'D': 4, 'M': 4, 'V': 4,
+                'E': 5, 'N': 5, 'W': 5,
+                'F': 6, 'O': 6, 'X': 6,
+                'G': 7, 'P': 7, 'Y': 7,
+                'H': 8, 'Q': 8, 'Z': 8,
+                'I': 9, 'R': 9
+            },
+            'Chaldean': {
+                'A': 1, 'I': 1, 'J': 1, 'Q': 1, 'Y': 1,
+                'B': 2, 'K': 2, 'R': 2,
+                'C': 3, 'G': 3, 'L': 3, 'S': 3,
+                'D': 4, 'M': 4, 'T': 4,
+                'E': 5, 'H': 5, 'N': 5, 'X': 5,
+                'U': 6, 'V': 6, 'W': 6,
+                'O': 7, 'Z': 7,
+                'F': 8, 'P': 8
+            },
+            'Cheiro': {
+                'A': 1, 'I': 1, 'J': 1, 'Q': 1, 'Y': 1,
+                'B': 2, 'K': 2, 'R': 2,
+                'C': 3, 'G': 3, 'L': 3, 'S': 3,
+                'D': 4, 'M': 4, 'T': 4,
+                'E': 5, 'H': 5, 'N': 5, 'X': 5,
+                'U': 6, 'V': 6, 'W': 6,
+                'O': 7, 'Z': 7,
+                'F': 8, 'P': 8
+            },
+            'Kabbalistic': {
+                'A': 1, 'I': 1, 'Y': 1, 'J': 1, 'Q': 1, 'R': 2, 'C': 3, 'G': 3, 'L': 3, 'S': 3, 'D': 4, 'T': 4, 'M': 4, 'K': 5, 'E': 5, 'H': 5, 'N': 5, 'X': 5, 'B': 6, 'U': 6, 'V': 6, 'W': 6, 'O': 7, 'Z': 7, 'F': 8, 'P': 8, 'K': 9, 'J': 10
+            },
+            'Abjad': {
+                'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9,
+                'J': 10, 'K': 20, 'L': 30, 'M': 40, 'N': 50, 'O': 60, 'P': 70, 'Q': 80, 'R': 90,
+                'S': 100, 'T': 200, 'U': 300, 'V': 400, 'W': 500, 'X': 600, 'Y': 700, 'Z': 800
+            },
+            'Tamil': {
+                'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9,
+                'J': 1, 'K': 2, 'L': 3, 'M': 4, 'N': 5, 'O': 6, 'P': 7, 'Q': 8, 'R': 9,
+                'S': 1, 'T': 2, 'U': 3, 'V': 4, 'W': 5, 'X': 6, 'Y': 7, 'Z': 8
+            }
+        };
+
+        // Function to reduce a number to a single digit or a Master Number, returning steps
+        function reduceNumberWithSteps(num) {
+            let steps = [num];
+            let currentSum = num;
+
+            while (currentSum >= 10 && currentSum !== 11 && currentSum !== 22 && currentSum !== 33) {
+                let sum = 0;
+                const strNum = String(currentSum);
+                let stepStr = strNum.split('').join(' + ');
+                for (let i = 0; i < strNum.length; i++) {
+                    sum += parseInt(strNum[i]);
+                }
+                steps.push(`${stepStr} = ${sum}`);
+                currentSum = sum;
+            }
+            return { value: currentSum, steps: steps };
+        }
+
+        // Calculate Life Path Number
+        function calculateLifePath(dob) {
+            const [day, month, year] = dob.split(/[/-]/).map(Number);
+            const reducedMonth = reduceNumberWithSteps(month);
+            const reducedDay = reduceNumberWithSteps(day);
+            const reducedYear = reduceNumberWithSteps(year);
+            const sum = reducedMonth.value + reducedDay.value + reducedYear.value;
+            const final = reduceNumberWithSteps(sum);
+            return {
+                value: final.value,
+                breakdown: `Month (${month}): ${reducedMonth.steps.join(' -> ')}\nDay (${day}): ${reducedDay.steps.join(' -> ')}\nYear (${year}): ${reducedYear.steps.join(' -> ')}\nSum: ${reducedMonth.value} + ${reducedDay.value} + ${reducedYear.value} = ${sum}\nFinal: ${final.steps.join(' -> ')}`
+            };
+        }
+
+        // Calculate Birthday Number
+        function calculateBirthdayNumber(dob) {
+            const [day, ,] = dob.split(/[/-]/).map(Number);
+            const final = reduceNumberWithSteps(day);
+            return {
+                value: final.value,
+                breakdown: `Birthday Number: ${day}\nFinal: ${final.steps.join(' -> ')}`
+            };
+        }
+
+        // Function to determine the Zodiac Sign based on DOB
+        function getZodiacInfo(dob) {
+            const [day, month, year] = dob.split(/[/-]/).map(Number);
+            const zodiacs = [
+                { name: 'Aries', start: '03-21', end: '04-19', traits: 'energetic, passionate, and a natural leader', luckyNumber: 9, color: 'Red', element: 'Fire', birthstone: 'Diamond', planet: 'Mars', day: 'Tuesday' },
+                { name: 'Taurus', start: '04-20', end: '05-20', traits: 'dependable, stable, and persistent', luckyNumber: 6, color: 'Green', element: 'Earth', birthstone: 'Emerald', planet: 'Venus', day: 'Friday' },
+                { name: 'Gemini', start: '05-21', end: '06-20', traits: 'curious, adaptable, and communicative', luckyNumber: 5, color: 'Yellow', element: 'Air', birthstone: 'Pearl', planet: 'Mercury', day: 'Wednesday' },
+                { name: 'Cancer', start: '06-21', end: '07-22', traits: 'nurturing, loyal, and highly imaginative', luckyNumber: 2, color: 'White', element: 'Water', birthstone: 'Ruby', planet: 'Moon', day: 'Monday' },
+                { name: 'Leo', start: '07-23', end: '08-22', traits: 'confident, generous, and charismatic', luckyNumber: 1, color: 'Gold', element: 'Fire', birthstone: 'Peridot', planet: 'Sun', day: 'Sunday' },
+                { name: 'Virgo', start: '08-23', end: '09-22', traits: 'practical, diligent, and analytical', luckyNumber: 5, color: 'Blue', element: 'Earth', birthstone: 'Sapphire', planet: 'Mercury', day: 'Wednesday' },
+                { name: 'Libra', start: '09-23', end: '10-22', traits: 'balanced, social, and diplomatic', luckyNumber: 6, color: 'Pink', element: 'Air', birthstone: 'Opal', planet: 'Venus', day: 'Friday' },
+                { name: 'Scorpio', start: '10-23', end: '11-21', traits: 'intense, resourceful, and passionate', luckyNumber: 9, color: 'Black', element: 'Water', birthstone: 'Topaz', planet: 'Pluto', day: 'Tuesday' },
+                { name: 'Sagittarius', start: '11-22', end: '12-21', traits: 'adventurous, optimistic, and philosophical', luckyNumber: 3, color: 'Purple', element: 'Fire', birthstone: 'Turquoise', planet: 'Jupiter', day: 'Thursday' },
+                { name: 'Capricorn', start: '12-22', end: '01-19', traits: 'disciplined, ambitious, and responsible', luckyNumber: 8, color: 'Brown', element: 'Earth', birthstone: 'Garnet', planet: 'Saturn', day: 'Saturday' },
+                { name: 'Aquarius', start: '01-20', end: '02-18', traits: 'independent, humanitarian, and progressive', luckyNumber: 4, color: 'Blue', element: 'Air', birthstone: 'Amethyst', planet: 'Uranus', day: 'Saturday' },
+                { name: 'Pisces', start: '02-19', end: '03-20', traits: 'compassionate, intuitive, and artistic', luckyNumber: 7, color: 'Sea Green', element: 'Water', birthstone: 'Aquamarine', planet: 'Neptune', day: 'Thursday' }
+            ];
+
+            const monthDay = `${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+            
+            for (const sign of zodiacs) {
+                if ((sign.start <= monthDay && monthDay <= sign.end) || (sign.start > sign.end && (monthDay >= sign.start || monthDay <= sign.end))) {
+                    return sign;
+                }
+            }
+            return { name: 'Unknown', traits: 'N/A' };
+        }
+        
+        // --- Numerology Functions for Name Calculations ---
+        function calculateNameNumber(name, map) {
+            const cleanName = name.toUpperCase().replace(/[^A-Z]/g, '');
+            let sum = 0;
+            let breakdown = '';
+            for (const char of cleanName) {
+                const value = map[char] || 0;
+                sum += value;
+                breakdown += `${char}(${value}) + `;
+            }
+            breakdown = breakdown.slice(0, -3) + ` = ${sum}`;
+            const final = reduceNumberWithSteps(sum);
+            return {
+                value: final.value,
+                breakdown: breakdown + `\nFinal: ${final.steps.join(' -> ')}`
+            };
+        }
+
+        // --- Loshu Grid Functionality ---
+        function generateLoshuGridHtml(dob, name, nameMap, title) {
+            const dobString = dob.replace(/[/-]/g, '');
+            const nameString = name.toUpperCase().replace(/[^A-Z]/g, '');
+
+            const gridCells = [
+                { num: 4, color: '#3b82f6' }, { num: 9, color: '#f59e0b' }, { num: 2, color: '#ef4444' },
+                { num: 3, color: '#10b981' }, { num: 5, color: '#f59e0b' }, { num: 7, color: '#ef4444' },
+                { num: 8, color: '#10b981' }, { num: 1, color: '#3b82f6' }, { num: 6, color: '#f59e0b' }
+            ];
+
+            const loshuGridData = {};
+            for (let i = 1; i <= 9; i++) {
+                loshuGridData[i] = '';
+            }
+
+            for (const char of dobString) {
+                const digit = parseInt(char);
+                if (digit >= 1 && digit <= 9) {
+                    loshuGridData[digit] += digit;
+                }
+            }
+            
+            if (nameMap) {
+                for (const char of nameString) {
+                    if (nameMap[char]) {
+                        // For Abjad and Tamil, we need to reduce the letter value before adding to grid
+                        const digit = reduceNumberWithSteps(nameMap[char]).value;
+                        if (digit >= 1 && digit <= 9) {
+                            loshuGridData[digit] += digit;
+                        }
+                    }
+                }
+            }
+            
+            let gridHtml = `<div class="mt-4">
+                <h4 class="text-xl font-bold text-gray-700 mb-2">${title}</h4>
+                <div class="grid grid-cols-3 gap-1 w-full max-w-xs mx-auto text-white font-bold text-lg rounded-xl overflow-hidden shadow-md">`;
+            gridCells.forEach(cellInfo => {
+                const numbers = loshuGridData[cellInfo.num];
+                const content = numbers.length > 0 ? numbers : '-';
+                gridHtml += `<div class="loshu-cell" style="background-color: ${cellInfo.color}">${content}</div>`;
+            });
+            gridHtml += `</div></div>`;
+            return gridHtml;
+        }
+
+        // Generate all Loshu grids
+        function generateAllLoshuGridsHtml(person) {
+            const dobGrid = generateLoshuGridHtml(person.dob, '', null, 'Loshu Grid (Based on DOB Only)');
+            const pythagoreanGrid = generateLoshuGridHtml(person.dob, person.name, numerologyMaps.Pythagorean, 'Loshu Grid (Pythagorean)');
+            const chaldeanGrid = generateLoshuGridHtml(person.dob, person.name, numerologyMaps.Chaldean, 'Loshu Grid (Chaldean)');
+            const cheiroGrid = generateLoshuGridHtml(person.dob, person.name, numerologyMaps.Cheiro, 'Loshu Grid (Cheiro)');
+            const kabbalisticGrid = generateLoshuGridHtml(person.dob, person.name, numerologyMaps.Kabbalistic, 'Loshu Grid (Kabbalistic)');
+            const abjadGrid = generateLoshuGridHtml(person.dob, person.name, numerologyMaps.Abjad, 'Loshu Grid (Abjad)');
+            const tamilGrid = generateLoshuGridHtml(person.dob, person.name, numerologyMaps.Tamil, 'Loshu Grid (Tamil)');
+
+
+            return `
+                <div class="mt-6 report-section">
+                    <h4 class="text-xl font-bold text-indigo-700 mb-2">--- Loshu Grids ---</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        ${dobGrid}
+                        ${pythagoreanGrid}
+                        ${chaldeanGrid}
+                        ${cheiroGrid}
+                        ${kabbalisticGrid}
+                        ${abjadGrid}
+                        ${tamilGrid}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Function to get Chinese numerology insights
+        function getChineseNumerology(number) {
+            switch (number) {
+                case 1: return "Number 1 symbolizes unity and independence. It is associated with a beginning, a single path, and a clear direction in life.";
+                case 2: return "Number 2 is considered lucky and represents harmony and balance, especially in relationships. It is seen as a symbol of 'double happiness'.";
+                case 3: return "Number 3 is linked to birth and growth. It's often associated with a sense of vitality, and is considered a very lucky number.";
+                case 4: return "Number 4 is considered unlucky because its pronunciation is similar to the word for 'death' in Mandarin and other dialects. It can symbolize challenges.";
+                case 5: return "Number 5 is linked to the five elements (wood, fire, earth, metal, water) and represents balance and change. It's considered a neutral number.";
+                case 6: return "Number 6 sounds like the word for 'flow' or 'smooth' and is associated with good fortune and smooth progress in life.";
+                case 7: return "Number 7 is often associated with connection and is considered a neutral or spiritual number.";
+                case 8: return "Number 8 is the luckiest number, as it sounds like the word for 'fortune' or 'wealth'. It symbolizes prosperity and success.";
+                case 9: return "Number 9 symbolizes longevity and eternity, as it is pronounced like the word for 'long-lasting'. It's often used in weddings and celebrations.";
+                case 11: return "As a Master Number, 11 maintains a strong spiritual and communicative energy, symbolizing a path with great potential for enlightenment.";
+                case 22: return "As a Master Builder number, 22 in Chinese numerology would symbolize a path of great potential, combining the luck of two with the stability of a master number.";
+                case 33: return "As a Master Number, 33 represents a path of compassion and mastery, symbolizing great potential for guiding and helping others.";
+                default: return "This number is not a primary focus in Chinese numerology, but all numbers can be seen as holding potential for growth and experience.";
+            }
+        }
+
+        // --- Event Listeners and Report Generation Logic ---
+
+        document.getElementById('addPersonButton').addEventListener('click', () => {
+            const name = document.getElementById('nameInput').value.trim();
+            const dob = document.getElementById('dobInput').value.trim();
+            const dobRegex = /^(0[1-9]|[12][0-9]|3[01])[/-](0[1-9]|1[0-2])[/-]\d{4}$/;
+
+            if (!name || !dob) {
+                showMessage('Please fill in both the name and date of birth.', true);
+                return;
+            }
+            if (!dobRegex.test(dob)) {
+                showMessage('Please use a valid date format like dd/mm/yyyy or dd-mm-yyyy.', true);
+                return;
+            }
+
+            if (people.length >= 2) {
+                showMessage('You can only add up to two people for comparison.', true);
+                return;
+            }
+
+            people.push({ name, dob });
+            document.getElementById('nameInput').value = '';
+            document.getElementById('dobInput').value = '';
+            updatePeopleList();
+            showMessage('Person added successfully!', false);
+        });
+
+        function updatePeopleList() {
+            const peopleList = document.getElementById('peopleList');
+            const peopleListContainer = document.getElementById('peopleListContainer');
+            peopleList.innerHTML = '';
+            
+            if (people.length > 0) {
+                peopleListContainer.classList.remove('hidden');
+                people.forEach((person, index) => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'flex items-center justify-between p-4 bg-gray-100 rounded-lg shadow-sm';
+                    listItem.innerHTML = `
+                        <span class="text-gray-800 font-medium">${person.name} <span class="text-sm text-gray-500">(${person.dob})</span></span>
+                        <div class="flex gap-2">
+                            <button data-index="${index}" class="generate-individual-report-btn py-2 px-4 bg-indigo-600 text-white font-bold rounded-lg shadow-md hover:bg-indigo-700 transition-colors duration-200">View Report</button>
+                            <button data-index="${index}" class="remove-person-btn py-2 px-4 bg-red-500 text-white font-bold rounded-lg shadow-md hover:bg-red-600 transition-colors duration-200">Remove</button>
+                        </div>
+                    `;
+                    peopleList.appendChild(listItem);
+                });
+                
+                // Add event listeners for new buttons
+                document.querySelectorAll('.generate-individual-report-btn').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const index = event.target.dataset.index;
+                        generateIndividualReport(people[index]);
+                    });
+                });
+                document.querySelectorAll('.remove-person-btn').forEach(button => {
+                    button.addEventListener('click', (event) => {
+                        const index = event.target.dataset.index;
+                        people.splice(index, 1);
+                        updatePeopleList();
+                        document.getElementById('reportSection').classList.add('hidden');
+                        document.getElementById('reportContent').innerHTML = '';
+                    });
+                });
+            } else {
+                 peopleListContainer.classList.add('hidden');
+            }
+
+            // Show joint report button if there are two people
+            const generateJointBtn = document.createElement('button');
+            generateJointBtn.id = 'generateJointReportBtn';
+            generateJointBtn.className = 'w-full mt-6 py-3 px-6 bg-purple-600 text-white font-bold rounded-lg shadow-md hover:bg-purple-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2';
+            generateJointBtn.textContent = 'Generate Joint Report';
+            
+            const existingBtn = document.getElementById('generateJointReportBtn');
+            if (people.length === 2 && !existingBtn) {
+                peopleListContainer.appendChild(generateJointBtn);
+                generateJointBtn.addEventListener('click', () => generateJointReport());
+            } else if (people.length !== 2 && existingBtn) {
+                existingBtn.remove();
+            }
+        }
+
+        // Generate full report for a single person
+        function generateIndividualReport(person) {
+            document.getElementById('reportContent').innerHTML = generateIndividualReportHtml(person);
+            document.getElementById('reportSection').classList.remove('hidden');
+        }
+
+        // Generate full report for a two people
+        function generateJointReport() {
+            if (people.length < 2) {
+                showMessage('Please add two people to generate a joint report.', true);
+                return;
+            }
+            
+            const person1 = people[0];
+            const person2 = people[1];
+            
+            // Individual Reports
+            const person1Report = generateIndividualReportHtml(person1);
+            const person2Report = generateIndividualReportHtml(person2);
+            
+            // Joint Analysis
+            const jointReportHtml = generateJointAnalysisHtml(person1, person2);
+
+            // Comparison Chart
+            const comparisonChartHtml = generateComparisonChartHtml(person1, person2);
+
+            document.getElementById('reportContent').innerHTML = person1Report + person2Report + jointReportHtml + comparisonChartHtml;
+            document.getElementById('reportSection').classList.remove('hidden');
+            document.getElementById('reportContent').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Helper function to generate individual report HTML string
+        function generateIndividualReportHtml(person) {
+            const { name, dob } = person;
+            const lifePathPythagorean = calculateLifePath(dob);
+            const birthdayNumber = calculateBirthdayNumber(dob);
+            
+            // Calculate Destiny Numbers for all systems
+            const destinyPythagorean = calculateNameNumber(name, numerologyMaps.Pythagorean);
+            const destinyChaldean = calculateNameNumber(name, numerologyMaps.Chaldean);
+            const destinyCheiro = calculateNameNumber(name, numerologyMaps.Cheiro);
+            const destinyKabbalistic = calculateNameNumber(name, numerologyMaps.Kabbalistic);
+            const destinyAbjad = calculateNameNumber(name, numerologyMaps.Abjad);
+            const destinyTamil = calculateNameNumber(name, numerologyMaps.Tamil);
+
+            const zodiacInfo = getZodiacInfo(dob);
+            const allLoshuGridsHtml = generateAllLoshuGridsHtml(person);
+            
+            return `
+                <div class="report-block">
+                    <h3 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">${name} Report</h3>
+                    <p class="text-gray-600"><strong class="text-indigo-600">Date of Birth:</strong> ${dob}</p>
+                    
+                    <div class="mt-6">
+                        <h4 class="text-xl font-bold text-indigo-700 mb-4">--- Numerology ---</h4>
+                        <div class="space-y-4">
+                            <div>
+                                <h5 class="font-bold text-gray-800">Life Path Number: ${lifePathPythagorean.value}</h5>
+                                <p class="text-sm text-gray-500 font-mono">Calculation: ${lifePathPythagorean.breakdown.replace(/\n/g, '<br>')}</p>
+                            </div>
+                            <div>
+                                <h5 class="font-bold text-gray-800">Birthday Number: ${birthdayNumber.value}</h5>
+                                <p class="text-sm text-gray-500 font-mono">Calculation: ${birthdayNumber.breakdown.replace(/\n/g, '<br>')}</p>
+                            </div>
+                            <div>
+                                <h5 class="font-bold text-gray-800">Destiny (Expression) Number: ${destinyPythagorean.value} (Pythagorean)</h5>
+                                <p class="text-sm text-gray-500 font-mono">Calculation: ${destinyPythagorean.breakdown.replace(/\n/g, '<br>')}</p>
+                            </div>
+                            <div>
+                                <h5 class="font-bold text-gray-800">Destiny (Expression) Number: ${destinyChaldean.value} (Chaldean)</h5>
+                                <p class="text-sm text-gray-500 font-mono">Calculation: ${destinyChaldean.breakdown.replace(/\n/g, '<br>')}</p>
+                            </div>
+                            <div>
+                                <h5 class="font-bold text-gray-800">Destiny (Expression) Number: ${destinyCheiro.value} (Cheiro)</h5>
+                                <p class="text-sm text-gray-500 font-mono">Calculation: ${destinyCheiro.breakdown.replace(/\n/g, '<br>')}</p>
+                            </div>
+                            <div>
+                                <h5 class="font-bold text-gray-800">Destiny (Expression) Number: ${destinyKabbalistic.value} (Kabbalistic)</h5>
+                                <p class="text-sm text-gray-500 font-mono">Calculation: ${destinyKabbalistic.breakdown.replace(/\n/g, '<br>')}</p>
+                            </div>
+                            <div>
+                                <h5 class="font-bold text-gray-800">Destiny (Expression) Number: ${destinyAbjad.value} (Islamic Abjad)</h5>
+                                <p class="text-sm text-gray-500 font-mono">Calculation: ${destinyAbjad.breakdown.replace(/\n/g, '<br>')}</p>
+                            </div>
+                            <div>
+                                <h5 class="font-bold text-gray-800">Destiny (Expression) Number: ${destinyTamil.value} (Tamil / Vedic)</h5>
+                                <p class="text-sm text-gray-500 font-mono">Calculation: ${destinyTamil.breakdown.replace(/\n/g, '<br>')}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-6">
+                        <h4 class="text-xl font-bold text-indigo-700 mb-2">--- Astrology & Cultural Insights ---</h4>
+                        <h5 class="text-lg font-bold text-gray-700 mb-2">Your Zodiac Identity</h5>
+                        <p class="text-gray-600">Based on your date of birth, your Zodiac Sign is <strong class="text-indigo-600">${zodiacInfo.name}</strong>.</p>
+                        <p class="text-gray-600">General Traits: ${zodiacInfo.traits}</p>
+                        <p class="text-gray-600"><strong>Key Astrological Information:</strong></p>
+                        <ul class="list-disc list-inside text-gray-600 ml-4">
+                            <li>Lucky Number: <strong>${zodiacInfo.luckyNumber}</strong></li>
+                            <li>Lucky Color: <strong>${zodiacInfo.color}</strong></li>
+                            <li>Favorable Element: <strong>${zodiacInfo.element}</strong></li>
+                            <li>Birthstone: <strong>${zodiacInfo.birthstone}</strong></li>
+                            <li>Ruling Planet: <strong>${zodiacInfo.planet}</strong></li>
+                            <li>Lucky Day: <strong>${zodiacInfo.day}</strong></li>
+                        </ul>
+                        <div class="mt-6">
+                            <h5 class="text-lg font-bold text-gray-700 mb-2">Chinese Numerology Insight</h5>
+                            <p class="text-gray-600">Based on your primary Life Path Number (${lifePathPythagorean.value}), here is its significance in Chinese numerology:</p>
+                            <div class="bg-gray-100 p-4 rounded-lg mt-2">
+                                <p class="text-gray-800 font-medium">${getChineseNumerology(lifePathPythagorean.value)}</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    ${allLoshuGridsHtml}
+
+                </div>
+            `;
+        }
+
+        // Generate Joint Analysis HTML
+        function generateJointAnalysisHtml(p1, p2) {
+            const p1LifePath = calculateLifePath(p1.dob).value;
+            const p2LifePath = calculateLifePath(p2.dob).value;
+            const compatibility = getLifePathCompatibility(p1LifePath, p2LifePath);
+            return `
+                <div class="report-section">
+                    <h3 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Joint Report & Compatibility</h3>
+                    <div class="bg-blue-50 p-6 rounded-xl shadow-md">
+                        <p class="text-xl font-semibold mb-2">${p1.name} (Life Path ${p1LifePath}) & ${p2.name} (Life Path ${p2LifePath})</p>
+                        <p class="text-gray-700 leading-relaxed">${compatibility}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Generate Comparison Chart HTML
+        function generateComparisonChartHtml(p1, p2) {
+            const p1LifePath = calculateLifePath(p1.dob).value;
+            const p2LifePath = calculateLifePath(p2.dob).value;
+
+            const p1DestinyNumbers = {
+                'Pythagorean': calculateNameNumber(p1.name, numerologyMaps.Pythagorean).value,
+                'Chaldean': calculateNameNumber(p1.name, numerologyMaps.Chaldean).value,
+                'Cheiro': calculateNameNumber(p1.name, numerologyMaps.Cheiro).value,
+                'Kabbalistic': calculateNameNumber(p1.name, numerologyMaps.Kabbalistic).value,
+                'Abjad': calculateNameNumber(p1.name, numerologyMaps.Abjad).value,
+                'Tamil': calculateNameNumber(p1.name, numerologyMaps.Tamil).value,
+            };
+
+            const p2DestinyNumbers = {
+                'Pythagorean': calculateNameNumber(p2.name, numerologyMaps.Pythagorean).value,
+                'Chaldean': calculateNameNumber(p2.name, numerologyMaps.Chaldean).value,
+                'Cheiro': calculateNameNumber(p2.name, numerologyMaps.Cheiro).value,
+                'Kabbalistic': calculateNameNumber(p2.name, numerologyMaps.Kabbalistic).value,
+                'Abjad': calculateNameNumber(p2.name, numerologyMaps.Abjad).value,
+                'Tamil': calculateNameNumber(p2.name, numerologyMaps.Tamil).value,
+            };
+
+            let tableHtml = `<div class="report-section">
+                <h3 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-4">Comparison Table</h3>
+                <div class="bg-green-50 p-6 rounded-xl shadow-md">
+                    <table class="w-full number-comparison-table border-collapse rounded-lg overflow-hidden">
+                        <thead>
+                            <tr>
+                                <th>System</th>
+                                <th>${p1.name} (Destiny)</th>
+                                <th>${p2.name} (Destiny)</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+            
+            for (const system in p1DestinyNumbers) {
+                tableHtml += `
+                    <tr>
+                        <td>${system}</td>
+                        <td>${p1DestinyNumbers[system]}</td>
+                        <td>${p2DestinyNumbers[system]}</td>
+                    </tr>`;
+            }
+
+            tableHtml += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>`;
+            return tableHtml;
+        }
+        
+        // --- Compatibility Logic ---
+        function getLifePathCompatibility(lp1, lp2) {
+            if (lp1 === lp2) {
+                return `A shared Life Path Number (${lp1}) indicates you both have a deep, instinctual understanding of each other's core motivations and challenges. This can lead to a powerful connection and shared life purpose, but you may also struggle with similar issues or personality traits.`;
+            }
+            const pairs = {
+                '1-5': 'Highly compatible. Both are independent and love freedom. This can lead to an exciting, adventurous partnership.',
+                '1-7': 'A challenging but rewarding match. The 1’s ambition meets the 7’s intellectualism. They can learn a lot from each other.',
+                '2-4': 'Very compatible. The emotional 2 and practical 4 create a stable and supportive foundation.',
+                '2-6': 'Highly harmonious. Both are caring and nurturing, forming a strong bond based on family and home.',
+                '3-5': 'An exciting and dynamic match. Both are social and love adventure, but can struggle with commitment.',
+                '3-6': 'Compatible. The creative 3 and nurturing 6 form a balanced partnership focused on family and self-expression.',
+                '4-8': 'Compatible. Both are pragmatic and goal-oriented. They build a stable and prosperous life together.',
+                '5-8': 'A powerful but volatile match. The adventurous 5 and ambitious 8 can achieve great things, but may clash over control.',
+                '6-9': 'A compassionate and supportive match. Both are service-oriented and empathetic, creating a deep and loving connection.',
+            };
+            const sortedPair = [lp1, lp2].sort((a, b) => a - b).join('-');
+            return pairs[sortedPair] || "The connection between these two numbers is unique and requires a more in-depth analysis. While there might be challenges, every relationship holds potential for growth.";
+        }
+    </script>
+</body>
+</html>
